@@ -11,9 +11,10 @@ EPS = 1e-8
 # #########----  Collaborative Filtering with Social Exposure: A Modular Approach to Social Recommendation   ----#############
 # SEREC_boost
 
+
 class SERec(SocialRecommender):
-    def __init__(self,conf,trainingSet=None,testSet=None,relation=None,fold='[1]'):
-        super(SERec, self).__init__(conf,trainingSet,testSet,relation,fold)
+    def __init__(self, conf, trainingSet=None, testSet=None, relation=None, fold='[1]'):
+        super(SERec, self).__init__(conf, trainingSet, testSet, relation, fold)
 
     def initModel(self):
         super(SERec, self).initModel()
@@ -23,16 +24,17 @@ class SERec(SocialRecommender):
         self.init_mu = 0.01
         self.a = 1.0
         self.b = 99.0
-        self.s= 2.2
+        self.s = 2.2
         self.init_std = 0.5
         self.theta = self.init_std * \
             np.random.randn(self.num_users, self.embed_size).astype(np.float32)
         self.beta = self.init_std * \
             np.random.randn(self.num_items, self.embed_size).astype(np.float32)
-        self.mu = self.init_mu * np.ones((self.num_users,self.num_items), dtype=np.float32)
-        self.n_jobs=4
-        self.batch_size=1000
-        row,col,val = [],[],[]
+        self.mu = self.init_mu * \
+            np.ones((self.num_users, self.num_items), dtype=np.float32)
+        self.n_jobs = 4
+        self.batch_size = 1000
+        row, col, val = [], [], []
         for user in self.data.trainSet_u:
             for item in self.data.trainSet_u[user]:
                 u = self.data.user[user]
@@ -41,17 +43,18 @@ class SERec(SocialRecommender):
                 col.append(i)
                 val.append(1)
 
-        self.X = csr_matrix((np.array(val),(np.array(row),np.array(col))),(self.num_users,self.num_items))
-        row,col,val = [],[],[]
+        self.X = csr_matrix((np.array(val), (np.array(
+            row), np.array(col))), (self.num_users, self.num_items))
+        row, col, val = [], [], []
         for user in self.social.followees:
             for f in self.social.followees[user]:
                 u = self.data.user[user]
                 i = self.data.user[f]
                 row.append(u)
                 col.append(i)
-                val.append(1)
-        self.T = csr_matrix((np.array(val), (np.array(row), np.array(col))), (self.num_users, self.num_users))
-
+                val.append(10)
+        self.T = csr_matrix((np.array(val), (np.array(
+            row), np.array(col))), (self.num_users, self.num_users))
 
     def buildModel(self):
         print 'training...'
@@ -72,7 +75,6 @@ class SERec(SocialRecommender):
             self._update_expo(X, n_users)
             self.ranking_performance()
 
-
     def _update_factors(self, X, XT):
         '''Update user and item collaborative factors with ALS'''
         self.theta = recompute_factors(self.beta, self.theta, X,
@@ -89,7 +91,6 @@ class SERec(SocialRecommender):
                                       self.n_jobs,
                                       batch_size=self.batch_size)
 
-
     def _update_expo(self, X, n_users):
         '''Update exposure prior'''
         print '\tUpdating exposure prior...'
@@ -102,12 +103,12 @@ class SERec(SocialRecommender):
             A_sum += a_row_batch(X[lo:hi], self.theta[lo:hi], self.beta,
                                  self.lam_y, self.mu[lo:hi]).sum(axis=0)
 
-        A_sum=np.tile(A_sum,[self.num_users,1])
+        A_sum = np.tile(A_sum, [self.num_users, 1])
         S_sum = self.T.dot(A_sum)
-        self.mu = (self.a + A_sum +(self.s-1)*S_sum- 1) / (self.a + self.b + (self.s-1)*S_sum+n_users - 2)
+        self.mu = (self.a + A_sum + (self.s-1)*S_sum - 1) / \
+            (self.a + self.b + (self.s-1)*S_sum+n_users - 2)
 
-
-    def predictForRanking(self,u):
+    def predictForRanking(self, u):
         'invoked to rank all the items for the user'
         if self.data.containsUser(u):
             u = self.data.getUserId(u)
@@ -118,21 +119,22 @@ class SERec(SocialRecommender):
 # Utility functions #
 
 
-
 def get_row(Y, i):
     '''Given a scipy.sparse.csr_matrix Y, get the values and indices of the
     non-zero values in i_th row'''
     lo, hi = Y.indptr[i], Y.indptr[i + 1]
     return Y.data[lo:hi], Y.indices[lo:hi]
 
+
 def a_row_batch(Y_batch, theta_batch, beta, lam_y, mu):
     '''Compute the posterior of exposure latent variables A by batch'''
     pEX = sqrt(lam_y / 2 / np.pi) * \
-          np.exp(-lam_y * theta_batch.dot(beta.T) ** 2 / 2)
+        np.exp(-lam_y * theta_batch.dot(beta.T) ** 2 / 2)
 
     A = (pEX + EPS) / (pEX + EPS + (1 - mu) / mu)
     A[Y_batch.nonzero()] = 1.
     return A
+
 
 def _solve(k, A_k, X, Y, f, lam, lam_y, mu):
     '''Update one single factor'''
@@ -140,6 +142,7 @@ def _solve(k, A_k, X, Y, f, lam, lam_y, mu):
     a = np.dot(s_u * A_k[i_u], X[i_u])
     B = X.T.dot(A_k[:, np.newaxis] * X) + lam * np.eye(f)
     return LA.solve(B, a)
+
 
 def _solve_batch(lo, hi, X, X_old_batch, Y, m, f, lam, lam_y, mu):
     '''Update factors by batch, will eventually call _solve() on each factor to
@@ -156,6 +159,7 @@ def _solve_batch(lo, hi, X, X_old_batch, Y, m, f, lam, lam_y, mu):
         X_batch[ib] = _solve(k, A_batch[ib], X, Y, f, lam, lam_y, mu)
     return X_batch
 
+
 def recompute_factors(X, X_old, Y, lam, lam_y, mu, n_jobs, batch_size=1000):
     '''Regress X to Y with exposure matrix (computed on-the-fly with X_old) and
     ridge term lam by embarrassingly parallelization. All the comments below
@@ -169,11 +173,10 @@ def recompute_factors(X, X_old, Y, lam, lam_y, mu, n_jobs, batch_size=1000):
     end_idx = start_idx[1:] + [m]
     res = Parallel(n_jobs=n_jobs)(delayed(_solve_batch)(
         lo, hi, X, X_old[lo:hi], Y, m, f, lam, lam_y, mu)
-                                   for lo, hi in zip(start_idx, end_idx))
+        for lo, hi in zip(start_idx, end_idx))
     # res = []
     # for lo, hi in zip(start_idx, end_idx):
     #     res.append(_solve_batch(lo, hi, X, X_old[lo:hi], Y, m, f, lam, lam_y, mu))
 
     X_new = np.vstack(res)
     return X_new
-
